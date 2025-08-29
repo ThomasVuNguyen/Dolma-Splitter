@@ -62,8 +62,8 @@ def log_system_info():
     except Exception as e:
         logger.warning(f"Could not get system info: {e}")
 
-def get_parquet_files_info(source_dataset: str, cache_dir: str) -> List[Dict[str, Any]]:
-    """Get information about parquet files in the dataset"""
+def get_parquet_files_info(source_dataset: str, cache_dir: str, target_size_gb: float) -> List[Dict[str, Any]]:
+    """Get information about parquet files in the dataset, downloading only what's needed"""
     logger.info("🔍 Getting parquet files information...")
     
     try:
@@ -73,13 +73,20 @@ def get_parquet_files_info(source_dataset: str, cache_dir: str) -> List[Dict[str
         
         # Filter for parquet files
         parquet_files = [f for f in files if f.endswith('.parquet')]
-        logger.info(f"Found {len(parquet_files)} parquet files")
+        logger.info(f"Found {len(parquet_files)} parquet files in total")
+        logger.info(f"Will download files until we reach {target_size_gb} GB")
         
-        # Get file sizes and metadata
+        # Get file sizes and metadata, but only download what we need
         parquet_info = []
+        total_size_gb = 0.0
+        
         for i, filename in enumerate(parquet_files):
+            if total_size_gb >= target_size_gb:
+                logger.info(f"🎯 Target size reached ({total_size_gb:.3f} GB), stopping downloads")
+                break
+                
             try:
-                # Download file info to get size
+                # Download file to get size
                 local_path = hf_hub_download(
                     repo_id=source_dataset,
                     repo_type="dataset",
@@ -90,6 +97,7 @@ def get_parquet_files_info(source_dataset: str, cache_dir: str) -> List[Dict[str
                 
                 file_size = os.path.getsize(local_path)
                 file_size_gb = file_size / (1024**3)
+                total_size_gb += file_size_gb
                 
                 parquet_info.append({
                     'filename': filename,
@@ -99,16 +107,13 @@ def get_parquet_files_info(source_dataset: str, cache_dir: str) -> List[Dict[str
                     'index': i
                 })
                 
-                logger.info(f"📁 File {i+1}/{len(parquet_files)}: {filename} ({file_size_gb:.3f} GB)")
+                logger.info(f"📁 File {i+1}: {filename} ({file_size_gb:.3f} GB) - Total: {total_size_gb:.3f} GB")
                 
             except Exception as e:
                 logger.warning(f"Could not get info for {filename}: {e}")
                 continue
         
-        # Sort by index to maintain order
-        parquet_info.sort(key=lambda x: x['index'])
-        
-        logger.info(f"✅ Successfully analyzed {len(parquet_info)} parquet files")
+        logger.info(f"✅ Downloaded {len(parquet_info)} files, total size: {total_size_gb:.3f} GB")
         return parquet_info
         
     except Exception as e:
@@ -116,36 +121,35 @@ def get_parquet_files_info(source_dataset: str, cache_dir: str) -> List[Dict[str
         raise
 
 def copy_parquet_files_to_target_size(parquet_info: List[Dict[str, Any]], target_size_gb: float, target_dir: str) -> List[str]:
-    """Copy parquet files until we reach the target size"""
-    logger.info(f"📋 Copying parquet files to reach target size: {target_size_gb:.2f} GB")
+    """Move already-downloaded parquet files to target directory"""
+    logger.info(f"📋 Moving downloaded parquet files to target directory: {target_dir}")
     
     os.makedirs(target_dir, exist_ok=True)
-    copied_files = []
+    moved_files = []
     total_size_gb = 0.0
     
     for file_info in parquet_info:
-        if total_size_gb >= target_size_gb:
-            logger.info(f"🎯 Target size reached: {total_size_gb:.2f} GB")
-            break
-            
         try:
-            # Copy file to target directory
+            # Move file to target directory (more efficient than copy)
             source_path = file_info['local_path']
             target_path = os.path.join(target_dir, file_info['filename'])
             
-            shutil.copy2(source_path, target_path)
+            # Create subdirectories if needed
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
             
-            copied_files.append(file_info['filename'])
+            shutil.move(source_path, target_path)
+            
+            moved_files.append(file_info['filename'])
             total_size_gb += file_info['size_gb']
             
-            logger.info(f"✅ Copied: {file_info['filename']} ({file_info['size_gb']:.3f} GB) - Total: {total_size_gb:.3f} GB")
+            logger.info(f"✅ Moved: {file_info['filename']} ({file_info['size_gb']:.3f} GB) - Total: {total_size_gb:.3f} GB")
             
         except Exception as e:
-            logger.warning(f"Failed to copy {file_info['filename']}: {e}")
+            logger.warning(f"Failed to move {file_info['filename']}: {e}")
             continue
     
-    logger.info(f"📊 Final result: {len(copied_files)} files copied, total size: {total_size_gb:.3f} GB")
-    return copied_files
+    logger.info(f"📊 Final result: {len(moved_files)} files moved, total size: {total_size_gb:.3f} GB")
+    return moved_files
 
 def create_dataset_metadata(target_dir: str, source_dataset: str, target_examples: int):
     """Create necessary dataset metadata files"""
@@ -280,6 +284,7 @@ def main():
         logger.error("HUGGINGFACE_TOKEN not found in environment variables or .env file")
         logger.info("Please create a .env file with your Hugging Face token:")
         logger.info("HUGGINGFACE_TOKEN=your_token_here")
+        logger.info("Optional: VERIFY_UPLOAD=true to verify upload by downloading (default: false)")
         sys.exit(1)
     
     # Get the actual username from Hugging Face API
@@ -315,23 +320,23 @@ def main():
     try:
         # Step 1: Get information about parquet files
         logger.info(f"Analyzing parquet files in: {source_dataset}")
-        parquet_info = get_parquet_files_info(source_dataset, custom_cache_dir)
+        parquet_info = get_parquet_files_info(source_dataset, custom_cache_dir, target_size_gb)
         
         if not parquet_info:
             logger.error("No parquet files found in the dataset")
             sys.exit(1)
         
-        # Step 2: Copy parquet files until we reach target size
-        logger.info(f"Copying parquet files to reach {target_size_gb} GB...")
-        copied_files = copy_parquet_files_to_target_size(parquet_info, target_size_gb, local_save_dir)
+        # Step 2: Move downloaded parquet files to target directory
+        logger.info(f"Moving downloaded parquet files to target directory...")
+        moved_files = copy_parquet_files_to_target_size(parquet_info, target_size_gb, local_save_dir)
         
-        if not copied_files:
-            logger.error("No files were copied successfully")
+        if not moved_files:
+            logger.error("No files were moved successfully")
             sys.exit(1)
         
         # Step 3: Create dataset metadata files
         logger.info("Creating dataset metadata...")
-        create_dataset_metadata(local_save_dir, source_dataset, len(copied_files))
+        create_dataset_metadata(local_save_dir, source_dataset, len(moved_files))
         
         # Step 4: Initialize Hugging Face API with token
         logger.info("Initializing Hugging Face API with token")
@@ -367,7 +372,7 @@ def main():
                 folder_path=local_save_dir,
                 repo_id=target_dataset,
                 repo_type="dataset",
-                commit_message=f"Initial upload: First {len(copied_files)} parquet files (~{target_size_gb:.1f} GB) of pretokenized-dolma dataset"
+                commit_message=f"Initial upload: First {len(moved_files)} parquet files (~{target_size_gb:.1f} GB) of pretokenized-dolma dataset"
             )
             logger.info(f"✅ Dataset successfully uploaded to: {target_dataset}")
         except Exception as e:
@@ -376,18 +381,22 @@ def main():
             logger.info("You can retry the upload later or upload manually")
             raise
         
-        # Step 6: Verify upload
-        try:
-            uploaded_dataset = load_dataset(target_dataset)
-            logger.info(f"✅ Upload verification successful. Dataset loaded successfully.")
-        except Exception as e:
-            logger.warning(f"Upload verification failed: {e}")
+        # Step 6: Verify upload (optional - can be disabled to avoid re-downloading)
+        verify_upload = os.getenv('VERIFY_UPLOAD', 'false').lower() == 'true'
+        if verify_upload:
+            try:
+                uploaded_dataset = load_dataset(target_dataset)
+                logger.info(f"✅ Upload verification successful. Dataset loaded successfully.")
+            except Exception as e:
+                logger.warning(f"Upload verification failed: {e}")
+        else:
+            logger.info("📝 Upload verification skipped (set VERIFY_UPLOAD=true in .env to enable)")
         
         # Final success message
         logger.info("🎉 Dataset processing completed successfully!")
         logger.info(f"Local copy saved at: {local_save_dir}")
         logger.info(f"Hugging Face dataset: {target_dataset}")
-        logger.info(f"Files uploaded: {len(copied_files)} parquet files")
+        logger.info(f"Files uploaded: {len(moved_files)} parquet files")
     
     except Exception as e:
         logger.error(f"Error during dataset processing: {e}")

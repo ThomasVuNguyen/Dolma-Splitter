@@ -2,6 +2,19 @@
 
 This project downloads the `pico-lm/pretokenized-dolma` dataset from Hugging Face, truncates it to the first 20GB, and uploads it to `ThomastheMaker/pretokenized-dolma-20GB`.
 
+## Hardware
+
+You will need a lot of storage, roughly 1.5x to 2x the dataset size you are looking to process. For example, Dolma is 780GB, so at least 1.2TB is needed.
+
+Additionally, high bandwidth is recommended (downloading and uploading hundreds of GB of data is no small feat).
+
+With those 2 requirements, I highly recommend a Cloud Virtual Machine. Here are a few options for cheap/free:
+- Azure VM - Microsoft Startup Program takes 5m to setup & gives you $1000
+- GCP - A free account gives you some good credits too
+- Hetzner - Awesome, reliably & awesomely cheap
+
+For context, I use $1000 in Azure credits to run my 8 vCPU, 32GB RAM & 2TB storage. the CPU and RAM are barely used (2 vCPU & 8 GB RAM are enough). But storage is well worth it
+
 ## Setup
 
 1. **Activate the virtual environment and install dependencies:**

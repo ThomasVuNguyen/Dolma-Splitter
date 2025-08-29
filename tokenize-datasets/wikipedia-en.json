@@ -1,0 +1,8 @@
+{
+  "dataset": "wikimedia/wikipedia",
+  "column": "text",
+  "subset": "20231101.en",
+  "tokenizer": "allenai/OLMo-7B-0724-hf",
+  "output_column": "input_ids",
+  "output_dataset": "ThomasTheMaker/pretokenized_wiki_en"
+}
