@@ -29,16 +29,23 @@ This project downloads the `pico-lm/pretokenized-dolma` dataset from Hugging Fac
 2. **Run the script:**
    ```bash
    source myenv/bin/activate
-   python split.py
+   python split.py [target_size_gb]
    ```
+
+   **Examples:**
+   - `python split.py` - Uses default 20GB
+   - `python split.py 10` - Creates 10GB dataset
+   - `python split.py 5.5` - Creates 5.5GB dataset
+   - `python split.py 0.5` - Creates 500MB dataset
 
 ## What the script does
 
 1. Downloads the `pico-lm/pretokenized-dolma` dataset
-2. Estimates the dataset size and truncates it to approximately 20GB
-3. Creates a new repository `ThomastheMaker/pretokenized-dolma-20GB` on Hugging Face
-4. Uploads the truncated dataset
-5. Verifies the upload
+2. Estimates the dataset size and truncates it to your specified size (default: 20GB)
+3. Automatically generates a dataset name based on the target size (e.g., `ThomastheMaker/pretokenized-dolma-10GB`)
+4. Creates a new repository on Hugging Face with the generated name
+5. Uploads the truncated dataset
+6. Verifies the upload
 
 ## Requirements
 
