@@ -29,23 +29,29 @@ This project downloads the `pico-lm/pretokenized-dolma` dataset from Hugging Fac
 2. **Run the script:**
    ```bash
    source myenv/bin/activate
-   python split.py [target_size_gb]
+   python split.py [target_examples] [custom_dataset_name] [--no-streaming]
    ```
 
    **Examples:**
-   - `python split.py` - Uses default 20GB
-   - `python split.py 10` - Creates 10GB dataset
-   - `python split.py 5.5` - Creates 5.5GB dataset
-   - `python split.py 0.5` - Creates 500MB dataset
+   - `python split.py` - Uses default 1M examples with auto-generated name
+   - `python split.py 1000000` - Creates 1M examples dataset with auto-generated name
+   - `python split.py 500000` - Creates 500K examples dataset with auto-generated name
+   - `python split.py 1000000 my-dolma-dataset` - Creates 1M examples dataset named "my-dolma-dataset"
+   - `python split.py 2000000 dolma-2m-examples` - Creates 2M examples dataset named "dolma-2m-examples"
+   - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M` - Creates 5M examples dataset with full repository path
+   - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M --no-streaming` - Uses standard loading mode
 
 ## What the script does
 
 1. Downloads the `pico-lm/pretokenized-dolma` dataset
-2. Estimates the dataset size and truncates it to your specified size (default: 20GB)
-3. Automatically generates a dataset name based on the target size (e.g., `ThomastheMaker/pretokenized-dolma-10GB`)
-4. Creates a new repository on Hugging Face with the generated name
-5. Uploads the truncated dataset
-6. Verifies the upload
+2. **🚀 Uses streaming to process only the examples you need** (much faster than loading 205M examples!)
+3. Collects examples until your target count is reached, then stops
+4. **Saves the truncated dataset locally first** (safeguard against upload failures)
+5. Automatically generates a dataset name based on the target examples (e.g., `ThomastheMaker/pretokenized-dolma-1M`)
+6. Creates a new repository on Hugging Face with the generated name
+7. Uploads the truncated dataset from local storage
+8. Verifies the upload
+9. Provides clear paths to both local and remote datasets
 
 ## Requirements
 
