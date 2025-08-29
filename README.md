@@ -54,6 +54,84 @@ For context, I use $1000 in Azure credits to run my 8 vCPU, 32GB RAM & 2TB stora
    - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M` - Creates 5M examples dataset with full repository path
    - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M --no-streaming` - Uses standard loading mode
 
+## Tokenizing Datasets
+
+This project also includes a dataset tokenizer that can convert raw text datasets into tokenized format using various Hugging Face tokenizers.
+
+### Performance Notes
+
+**Hardware Requirements for Tokenization:**
+- **Storage**: 2-3x the original dataset size (for both source and tokenized versions)
+- **RAM**: 16GB+ recommended for large datasets
+- **CPU**: Multi-core CPU helps with processing speed
+- **Time**: Tokenization can be time-intensive for large datasets
+
+**Real-world Performance Example:**
+On my Azure VM (8 vCPU, 32GB RAM, 2TB storage), tokenizing the entire Wikipedia English dataset (~6M articles) takes approximately **12 hours** using the OLMo-7B tokenizer.
+
+### Setup for Tokenization
+
+1. **Install additional dependencies:**
+   ```bash
+   source myenv/bin/activate
+   pip install transformers tqdm
+   ```
+
+2. **Login to Hugging Face Hub:**
+   ```bash
+   huggingface-cli login
+   ```
+
+### Usage
+
+1. **Create a configuration file** (e.g., `wikipedia-en.json`):
+   ```json
+   {
+     "dataset": "wikimedia/wikipedia",
+     "column": "text",
+     "subset": "20231101.en",
+     "tokenizer": "allenai/OLMo-7B-0724-hf",
+     "output_column": "input_ids",
+     "output_dataset": "YourUsername/pretokenized_wiki_en"
+   }
+   ```
+
+2. **Run the tokenizer:**
+   ```bash
+   source myenv/bin/activate
+   python tokenize-datasets/tokenize_datasets.py wikipedia-en.json
+   ```
+
+   **Options:**
+   - `--private`: Make the output dataset private
+   - `--dry-run`: Process without uploading to Hub
+
+### Configuration Options
+
+- **dataset**: Source dataset name on Hugging Face Hub
+- **column**: Text column to tokenize
+- **subset**: Dataset subset (optional)
+- **tokenizer**: Hugging Face tokenizer model to use
+- **output_column**: Name for the tokenized output column
+- **output_dataset**: Target dataset name on Hugging Face Hub
+
+### Supported Tokenizers
+
+Any Hugging Face tokenizer can be used, including:
+- `allenai/OLMo-7B-0724-hf` (recommended for OLMo models)
+- `gpt2` (GPT-2 tokenizer)
+- `bert-base-uncased` (BERT tokenizer)
+- `t5-base` (T5 tokenizer)
+- Custom fine-tuned tokenizers
+
+### Tips for Large Datasets
+
+1. **Monitor progress**: The script shows progress bars and estimated completion time
+2. **Use dry-run first**: Test with `--dry-run` before processing large datasets
+3. **Consider subsetting**: Process smaller portions first to test your setup
+4. **Monitor resources**: Keep an eye on disk space and memory usage
+5. **Batch processing**: For very large datasets, consider processing in chunks
+
 ## What the script does
 
 1. Downloads the `pico-lm/pretokenized-dolma` dataset
