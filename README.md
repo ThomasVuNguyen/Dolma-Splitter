@@ -52,7 +52,7 @@ For context, I use $1000 in Azure credits to run my 8 vCPU, 32GB RAM & 2TB stora
    - `python split.py 1000000 my-dolma-dataset` - Creates 1M examples dataset named "my-dolma-dataset"
    - `python split.py 2000000 dolma-2m-examples` - Creates 2M examples dataset named "dolma-2m-examples"
    - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M` - Creates 5M examples dataset with full repository path
-   - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M --no-streaming` - Uses standard loading mode
+   - `python split.py 5000000 ThomasTheMaker/pretokenized-dolma-5M --no-streaming` - Uses standard loading mode.
 
 ## Tokenizing Datasets
 

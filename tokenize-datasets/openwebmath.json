@@ -1,0 +1,8 @@
+{
+    "dataset": "open-web-math/open-web-math",
+    "column": "text",
+    "subset": "default",
+    "tokenizer": "allenai/OLMo-7B-0724-hf",
+    "output_column": "input_ids",
+    "output_dataset": "ThomasTheMaker/pretokenized_openwebmath"
+  }

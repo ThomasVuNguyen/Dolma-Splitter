@@ -45,9 +45,9 @@ def load_source_dataset(dataset_name: str, subset: str = None) -> Dataset:
 
 
 def tokenize_dataset(dataset: Dataset, tokenizer: AutoTokenizer, 
-                    text_column: str, output_column: str) -> Dataset:
-    """Tokenize the dataset text column."""
-    print(f"Tokenizing column '{text_column}' to '{output_column}'")
+                    text_column: str, output_column: str, sequence_length: int) -> Dataset:
+    """Tokenize the dataset text column and filter by sequence length."""
+    print(f"Tokenizing column '{text_column}' to '{output_column}' with sequence_length={sequence_length}")
     
     def tokenize_function(examples):
         # Handle both string and list inputs
@@ -55,22 +55,31 @@ def tokenize_dataset(dataset: Dataset, tokenizer: AutoTokenizer,
         if isinstance(texts, str):
             texts = [texts]
         
-        # Tokenize with padding and truncation
+        # Tokenize without padding or truncation initially
         tokenized = tokenizer(
             texts,
-            padding=True,
-            truncation=True,
-            return_tensors="pt"
+            padding=False,
+            truncation=False,
+            return_tensors=None  # Return lists instead of tensors
         )
         
-        return {output_column: tokenized["input_ids"]}
+        # Filter and process sequences
+        valid_sequences = []
+        for token_ids in tokenized["input_ids"]:
+            if len(token_ids) >= sequence_length:
+                # Truncate to exact sequence_length
+                valid_sequences.append(token_ids[:sequence_length])
+            # Ignore sequences shorter than sequence_length
+        
+        return {output_column: valid_sequences}
     
     # Apply tokenization
     tokenized_dataset = dataset.map(
         tokenize_function,
         batched=True,
         batch_size=1000,
-        desc="Tokenizing dataset"
+        desc="Tokenizing and filtering dataset",
+        remove_columns=dataset.column_names  # Remove all original columns
     )
     
     return tokenized_dataset
@@ -119,7 +128,7 @@ def main():
         return 1
     
     # Validate required fields
-    required_fields = ["dataset", "column", "tokenizer", "output_column", "output_dataset"]
+    required_fields = ["dataset", "column", "tokenizer", "output_column", "output_dataset", "sequence_length"]
     for field in required_fields:
         if field not in config:
             print(f"Error: Missing required field '{field}' in configuration")
@@ -143,7 +152,8 @@ def main():
             source_dataset,
             tokenizer,
             config["column"],
-            config["output_column"]
+            config["output_column"],
+            config["sequence_length"]
         )
         
         print(f"Tokenization complete. Dataset shape: {tokenized_dataset.shape}")
@@ -151,8 +161,9 @@ def main():
         # Show sample
         print("\nSample tokenized example:")
         sample = tokenized_dataset[0]
-        print(f"Original text: {sample[config['column']][:100]}...")
-        print(f"Tokenized: {sample[config['output_column']][:20]}...")
+        print(f"Tokenized sequence length: {len(sample[config['output_column']])}")
+        print(f"First 20 tokens: {sample[config['output_column']][:20]}")
+        print(f"Last 20 tokens: {sample[config['output_column']][-20:]}")
         
         # Upload to hub (unless dry run)
         if not args.dry_run:
